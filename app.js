@@ -92,6 +92,12 @@ function initMap() {
     if (sidebar) sidebar.classList.add('collapsed');
     sidebarOpen = false;
   }
+
+  // Sync the toggle icon with the sidebar state
+  const icon = document.getElementById('toggleIcon');
+  if (icon) {
+    icon.className = sidebarOpen ? 'fas fa-times' : 'fas fa-bars';
+  }
 }
 
 /* =============================================
@@ -503,17 +509,18 @@ function toggleSidebar() {
   const sidebar = document.getElementById('sidebar');
   const icon = document.getElementById('toggleIcon');
   const overlay = document.getElementById('sidebarOverlay');
+  const isMobile = window.innerWidth <= 768;
   sidebarOpen = !sidebarOpen;
 
   if (sidebarOpen) {
     sidebar.classList.remove('collapsed');
-    icon.className = 'fas fa-bars';
-    if (window.innerWidth <= 768 && overlay) {
+    icon.className = 'fas fa-times';
+    if (isMobile && overlay) {
       overlay.classList.add('show');
     }
   } else {
     sidebar.classList.add('collapsed');
-    icon.className = 'fas fa-map';
+    icon.className = 'fas fa-bars';
     if (overlay) {
       overlay.classList.remove('show');
     }

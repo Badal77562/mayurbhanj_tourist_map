@@ -45,6 +45,11 @@
 
     <!-- ===== SIDEBAR ===== -->
     <aside class="sidebar" id="sidebar">
+      <script>
+        if (window.innerWidth <= 768) {
+          document.getElementById('sidebar').classList.add('collapsed');
+        }
+      </script>
       <!-- Default Spots List View -->
       <div id="spotsListView" class="sidebar-view">
         <div class="sidebar-header">
