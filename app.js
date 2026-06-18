@@ -89,8 +89,13 @@ function initMap() {
   // On mobile, start with sidebar collapsed (hidden) so map is visible
   if (window.innerWidth <= 768) {
     const sidebar = document.getElementById('sidebar');
-    if (sidebar) sidebar.classList.add('collapsed');
+    if (sidebar) {
+      sidebar.classList.add('collapsed');
+      sidebar.classList.remove('hidden');
+    }
     sidebarOpen = false;
+    // Initialize bottom sheet dragging gestures
+    initBottomSheetDrag();
   }
 
   // Sync the toggle icon with the sidebar state
@@ -340,6 +345,11 @@ function applyFilters() {
 function flyToSpot(spot) {
   map.flyTo([spot.lat, spot.lng], 13, { duration: 1.2, easeLinearity: 0.5 });
 
+  // On mobile, auto-collapse bottom sheet to peek state so map is visible
+  if (window.innerWidth <= 768) {
+    collapseSidebar();
+  }
+
   setTimeout(() => {
     const marker = markers[spot.id];
     if (marker) {
@@ -503,31 +513,185 @@ function switchBasemap(id) {
 }
 
 /* =============================================
-   SIDEBAR TOGGLE
+   MOBILE BOTTOM SHEET HELPER FUNCTIONS
    ============================================= */
-function toggleSidebar() {
+function expandSidebar() {
   const sidebar = document.getElementById('sidebar');
   const icon = document.getElementById('toggleIcon');
   const overlay = document.getElementById('sidebarOverlay');
   const isMobile = window.innerWidth <= 768;
-  sidebarOpen = !sidebarOpen;
 
-  if (sidebarOpen) {
+  sidebarOpen = true;
+  if (sidebar) {
     sidebar.classList.remove('collapsed');
-    icon.className = 'fas fa-times';
-    if (isMobile && overlay) {
-      overlay.classList.add('show');
-    }
-  } else {
-    sidebar.classList.add('collapsed');
-    icon.className = 'fas fa-bars';
-    if (overlay) {
-      overlay.classList.remove('show');
-    }
+    sidebar.classList.remove('hidden');
+    sidebar.style.transform = ''; // Clear inline dragging styles
   }
 
-  // Invalidate map size after transition
+  if (icon) icon.className = 'fas fa-times';
+
+  if (isMobile && overlay) {
+    overlay.classList.add('show');
+  }
+
   setTimeout(() => map.invalidateSize(), 350);
+}
+
+function collapseSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  const icon = document.getElementById('toggleIcon');
+  const overlay = document.getElementById('sidebarOverlay');
+
+  sidebarOpen = false;
+  if (sidebar) {
+    sidebar.classList.add('collapsed');
+    sidebar.classList.remove('hidden');
+    sidebar.style.transform = ''; // Clear inline dragging styles
+  }
+
+  if (icon) icon.className = 'fas fa-bars';
+
+  if (overlay) {
+    overlay.classList.remove('show');
+  }
+
+  setTimeout(() => map.invalidateSize(), 350);
+}
+
+function hideSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  const icon = document.getElementById('toggleIcon');
+  const overlay = document.getElementById('sidebarOverlay');
+
+  sidebarOpen = false;
+  if (sidebar) {
+    sidebar.classList.add('collapsed');
+    sidebar.classList.add('hidden');
+    sidebar.style.transform = ''; // Clear inline dragging styles
+  }
+
+  if (icon) icon.className = 'fas fa-bars';
+
+  if (overlay) {
+    overlay.classList.remove('show');
+  }
+
+  setTimeout(() => map.invalidateSize(), 350);
+}
+
+function handleCloseBtnClick(e) {
+  if (e) e.stopPropagation();
+  const sidebar = document.getElementById('sidebar');
+  const isMobile = window.innerWidth <= 768;
+
+  if (isMobile && sidebar) {
+    if (sidebar.classList.contains('collapsed')) {
+      // If already collapsed (peeking), hide it completely
+      hideSidebar();
+    } else {
+      // If expanded, collapse it to peeking
+      collapseSidebar();
+    }
+  } else {
+    // Desktop: collapse
+    collapseSidebar();
+  }
+}
+
+let startY = 0;
+let isDragging = false;
+let sidebarHeight = 0;
+
+function initBottomSheetDrag() {
+  const sidebar = document.getElementById('sidebar');
+  if (!sidebar) return;
+
+  const handle = sidebar.querySelector('.bottom-sheet-drag-handle');
+  const header = sidebar.querySelector('.sidebar-header');
+
+  const getPeekHeight = () => {
+    const peekStr = getComputedStyle(document.documentElement).getPropertyValue('--peek-h').trim();
+    return parseInt(peekStr) || 68;
+  };
+
+  const onTouchStart = (e) => {
+    startY = e.touches[0].clientY;
+    sidebarHeight = sidebar.getBoundingClientRect().height;
+    sidebar.style.transition = 'none'; // Disable transition during drag
+    isDragging = true;
+  };
+
+  const onTouchMove = (e) => {
+    if (!isDragging) return;
+    const clientY = e.touches[0].clientY;
+    const deltaY = clientY - startY;
+    const peekH = getPeekHeight();
+
+    if (sidebar.classList.contains('collapsed')) {
+      // In collapsed state, translate is down by (height - peekH)
+      const maxTranslate = sidebarHeight - peekH;
+      const currentTranslate = maxTranslate + deltaY;
+      const clampedTranslate = Math.max(0, Math.min(maxTranslate, currentTranslate));
+      sidebar.style.transform = `translateY(${clampedTranslate}px)`;
+    } else {
+      // In expanded state, translate is 0
+      const clampedTranslate = Math.max(0, Math.min(sidebarHeight, deltaY));
+      sidebar.style.transform = `translateY(${clampedTranslate}px)`;
+    }
+  };
+
+  const onTouchEnd = (e) => {
+    if (!isDragging) return;
+    isDragging = false;
+    sidebar.style.transition = ''; // Restore CSS transition
+
+    const endY = e.changedTouches[0].clientY;
+    const deltaY = endY - startY;
+
+    if (sidebar.classList.contains('collapsed')) {
+      if (deltaY < -50) {
+        expandSidebar();
+      } else {
+        collapseSidebar();
+      }
+    } else {
+      if (deltaY > 80) {
+        collapseSidebar();
+      } else {
+        expandSidebar();
+      }
+    }
+  };
+
+  const onHeaderClick = (e) => {
+    // Prevent toggling if user clicks on interactive elements (like buttons or selects)
+    if (e.target.closest('button') || e.target.closest('select') || e.target.closest('input')) {
+      return;
+    }
+    toggleSidebar();
+  };
+
+  [handle, header].forEach(el => {
+    if (!el) return;
+    el.addEventListener('touchstart', onTouchStart, { passive: true });
+    el.addEventListener('touchmove', onTouchMove, { passive: true });
+    el.addEventListener('touchend', onTouchEnd, { passive: true });
+    el.addEventListener('click', onHeaderClick);
+  });
+}
+
+/* =============================================
+   SIDEBAR TOGGLE
+   ============================================= */
+function toggleSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  if (!sidebar) return;
+
+  if (sidebar.classList.contains('collapsed') || sidebar.classList.contains('hidden')) {
+    expandSidebar();
+  } else {
+    collapseSidebar();
+  }
 }
 
 /* =============================================
@@ -581,7 +745,7 @@ function startDirections(spotId, event) {
   
   // Make sure sidebar is expanded
   if (!sidebarOpen) {
-    toggleSidebar();
+    expandSidebar();
   }
 
   // Start calculating from default

@@ -9,6 +9,7 @@
   --bg-card2: #161f30;
   --sidebar-w: 340px;
   --header-h: 62px;
+  --peek-h: 68px;
 
   --accent-green: #22c55e;
   --accent-teal: #14b8a6;
@@ -182,6 +183,10 @@ body {
   position: relative;
   z-index: 100;
   flex-shrink: 0;
+}
+
+.bottom-sheet-drag-handle {
+  display: none;
 }
 
 /* Desktop collapse — width approach */
@@ -500,6 +505,83 @@ body {
 .footer-info i {
   color: var(--accent-green);
   font-size: 12px;
+}
+
+.footer-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.footer-contact {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+  margin-top: 4px;
+}
+
+.contact-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  letter-spacing: 0.5px;
+}
+
+.contact-links {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.contact-links a {
+  color: var(--text-muted);
+  font-size: 10.5px;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: color var(--transition);
+}
+
+.contact-links a:hover {
+  color: var(--accent-teal);
+}
+
+.contact-links i {
+  color: var(--accent-green);
+  width: 12px;
+  text-align: center;
+}
+
+.social-links {
+  display: flex;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.social-links a {
+  color: var(--text-muted);
+  font-size: 13px;
+  transition: color var(--transition), transform var(--transition), border-color var(--transition), box-shadow var(--transition);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--bg-card2);
+  border: 1px solid var(--border);
+  text-decoration: none;
+}
+
+.social-links a:hover {
+  color: var(--accent-teal);
+  transform: translateY(-2px);
+  border-color: var(--accent-teal);
+  box-shadow: 0 4px 10px rgba(20, 184, 166, 0.2);
 }
 
 /* View Button (inside each spot card) */
@@ -1275,7 +1357,7 @@ body {
    ============================================= */
 @media (max-width: 768px) {
   :root {
-    --sidebar-w: 280px;
+    --sidebar-w: 100%;
   }
 
   .header-tagline {
@@ -1285,34 +1367,54 @@ body {
   .sidebar {
     position: fixed;
     left: 0;
-    top: var(--header-h);
+    right: 0;
     bottom: 0;
-    width: var(--sidebar-w);
-    height: calc(100vh - var(--header-h));
-    height: calc(100dvh - var(--header-h));
+    top: auto;
+    width: 100%;
+    height: 70vh;
+    height: 70dvh;
     z-index: 9999;
-    transform: translateX(0);
+    transform: translateY(0); /* Default expanded state */
     visibility: visible;
     pointer-events: auto;
-    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.3s;
-    box-shadow: 8px 0 30px rgba(0, 0, 0, 0.5);
+    transition: transform var(--transition), visibility var(--transition);
+    box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.4);
     overflow: hidden;
     background: var(--bg-card);
-    border-right: 1px solid var(--border);
+    border-right: none;
+    border-top: 1px solid var(--border);
+    border-radius: 20px 20px 0 0;
     display: flex;
     flex-direction: column;
   }
 
   .sidebar.collapsed {
-    width: var(--sidebar-w);
-    transform: translateX(-100%);
+    transform: translateY(calc(100% - var(--peek-h)));
+    box-shadow: 0 -4px 15px rgba(0, 0, 0, 0.3);
+    pointer-events: auto;
+    visibility: visible;
+  }
+
+  .sidebar.hidden {
+    transform: translateY(100%);
     box-shadow: none;
     pointer-events: none;
     visibility: hidden;
   }
 
-  /* Hide the mobile sidebar toggle button when the sidebar is open to avoid overlay overlap */
-  #sidebar:not(.collapsed) + .map-wrapper .sidebar-toggle {
+  .bottom-sheet-drag-handle {
+    display: block;
+    width: 40px;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 2px;
+    margin: 8px auto 0;
+    flex-shrink: 0;
+    cursor: grab;
+  }
+
+  /* Hide the mobile sidebar toggle button when the sidebar is peeking or expanded */
+  #sidebar:not(.hidden) + .map-wrapper .sidebar-toggle {
     opacity: 0;
     pointer-events: none;
     transform: scale(0.5);
@@ -1322,13 +1424,29 @@ body {
     display: none;
   }
 
+  /* Adjust Leaflet bottom controls on mobile to sit above the peek height */
+  .leaflet-bottom {
+    bottom: calc(var(--peek-h) + 6px) !important;
+    transition: bottom var(--transition) !important;
+  }
+
+  /* Shift zoom controls & attribution up when sidebar is expanded */
+  #sidebar:not(.collapsed):not(.hidden) ~ .map-wrapper .leaflet-bottom {
+    bottom: calc(70dvh + 10px) !important;
+  }
+
   /* Ensure map legend doesn't overlap controls */
   .map-legend {
-    bottom: 70px;
+    bottom: calc(var(--peek-h) + 12px);
     right: 8px;
     font-size: 10px;
     padding: 8px 10px;
     min-width: 120px;
+    transition: bottom var(--transition);
+  }
+
+  #sidebar:not(.collapsed):not(.hidden) ~ .map-wrapper .map-legend {
+    bottom: calc(70dvh + 20px);
   }
 }
 
@@ -1743,7 +1861,12 @@ body {
 
   .map-stats {
     left: 10px;
-    bottom: 85px; /* sit neatly above zoom controls */
+    bottom: calc(var(--peek-h) + 60px); /* sit neatly above zoom controls which are shifted up */
+    transition: bottom var(--transition);
+  }
+
+  #sidebar:not(.collapsed):not(.hidden) ~ .map-wrapper .map-stats {
+    bottom: calc(70dvh + 60px);
   }
 
   /* Collapsed Basemap Switcher on Mobile */

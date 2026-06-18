@@ -1,22 +1,27 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Mayurbhanj Tourism — Explore the Land of Forests & Heritage</title>
-  <meta name="description" content="Explore Mayurbhanj, Odisha's premier tourist destination — home to Similipal National Park, ancient temples, majestic waterfalls, and rich tribal culture." />
+  <meta name="description"
+    content="Explore Mayurbhanj, Odisha's premier tourist destination — home to Similipal National Park, ancient temples, majestic waterfalls, and rich tribal culture." />
 
   <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;1,500&display=swap" rel="stylesheet" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;1,500&display=swap"
+    rel="stylesheet" />
   <!-- Font Awesome -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
 
   <link rel="stylesheet" href="style.css" />
 </head>
+
 <body>
 
   <!-- ===== HEADER ===== -->
@@ -45,6 +50,8 @@
 
     <!-- ===== SIDEBAR ===== -->
     <aside class="sidebar" id="sidebar">
+      <!-- Drag handle for mobile bottom sheet -->
+      <div class="bottom-sheet-drag-handle"></div>
       <script>
         if (window.innerWidth <= 768) {
           document.getElementById('sidebar').classList.add('collapsed');
@@ -59,7 +66,7 @@
           </div>
           <div style="display: flex; align-items: center; gap: 8px;">
             <div class="sidebar-count" id="spotCount">12 places</div>
-            <button class="sidebar-close-btn" onclick="toggleSidebar()" title="Close Sidebar">
+            <button class="sidebar-close-btn" onclick="handleCloseBtnClick(event)" title="Close Sidebar">
               <i class="fas fa-times"></i>
             </button>
           </div>
@@ -95,13 +102,30 @@
 
         <!-- Sidebar Footer -->
         <div class="sidebar-footer">
-          <div class="footer-info">
-            <i class="fas fa-info-circle"></i>
-            <span>Best time: Oct – Mar</span>
+          <div class="footer-row">
+            <div class="footer-info">
+              <i class="fas fa-info-circle"></i>
+              <span>Oct – Mar</span>
+            </div>
+            <div class="footer-info">
+              <i class="fas fa-temperature-low"></i>
+              <span>Baripada</span>
+            </div>
           </div>
-          <div class="footer-info">
-            <i class="fas fa-temperature-low"></i>
-            <span>Nearest City: Baripada</span>
+          <div class="footer-contact">
+            <div class="contact-title">Created by Badal Mahata</div>
+            <div class="contact-links">
+              <a href="mailto:badalmahata46@gmail.com" title="Email Badal"><i class="fas fa-envelope"></i>
+                badalmahata46@gmail.com</a>
+              <a href="tel:+9170080XXXXX" title="Call Badal"><i class="fas fa-phone"></i> +91 70080 XXXXX</a>
+            </div>
+            <div class="social-links">
+              <a href="https://github.com/badal77562" target="_blank" title="GitHub"><i class="fab fa-github"></i></a>
+              <a href="https://linkedin.com/in/badalmahata" target="_blank" title="LinkedIn"><i
+                  class="fab fa-linkedin"></i></a>
+              <a href="https://instagram.com/badalmahata" target="_blank" title="Instagram"><i
+                  class="fab fa-instagram"></i></a>
+            </div>
           </div>
         </div>
       </div>
@@ -121,7 +145,8 @@
         <!-- Route Inputs -->
         <div class="route-inputs">
           <div class="input-group">
-            <label for="routeOrigin"><i class="fas fa-circle-dot" style="color: #22c55e;"></i> From (Start Location)</label>
+            <label for="routeOrigin"><i class="fas fa-circle-dot" style="color: #22c55e;"></i> From (Start
+              Location)</label>
             <div class="select-wrapper">
               <select id="routeOrigin" onchange="handleOriginChange(this.value)">
                 <option value="baripada">🏙️ Baripada City (HQ)</option>
@@ -268,4 +293,5 @@
   <script src="data.js"></script>
   <script src="app.js"></script>
 </body>
+
 </html>
