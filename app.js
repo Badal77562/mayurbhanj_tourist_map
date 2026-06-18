@@ -86,10 +86,11 @@ function initMap() {
   renderSidebarCards(TOURIST_SPOTS);
   updateVisibleCount(TOURIST_SPOTS.length);
 
-  // On mobile load, show backdrop overlay since sidebar defaults to open
+  // On mobile, start with sidebar collapsed (hidden) so map is visible
   if (window.innerWidth <= 768) {
-    const overlay = document.getElementById('sidebarOverlay');
-    if (overlay) overlay.classList.add('show');
+    const sidebar = document.getElementById('sidebar');
+    if (sidebar) sidebar.classList.add('collapsed');
+    sidebarOpen = false;
   }
 }
 
