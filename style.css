@@ -2139,3 +2139,103 @@ body {
     bottom: calc(var(--peek-h) + 16px);
   }
 }
+
+/* User Distance Badge (Beneath the Bike Marker) */
+.user-distance-badge {
+  position: absolute;
+  top: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(15, 23, 42, 0.95);
+  border: 1px solid rgba(59, 130, 246, 0.4);
+  color: #fff;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+  z-index: 100;
+}
+
+.user-location-bike {
+  width: 24px;
+  height: 24px;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  font-size: 11px;
+  box-shadow: 0 0 10px rgba(59, 130, 246, 0.6);
+  z-index: 10;
+}
+
+/* Touch Distance Measurement */
+.touch-target-marker {
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.touch-target-dot {
+  width: 12px;
+  height: 12px;
+  background: #f59e0b;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.8);
+}
+
+.touch-popup {
+  padding: 6px;
+  text-align: center;
+  font-family: 'Outfit', sans-serif;
+  min-width: 140px;
+}
+
+.touch-popup-title {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+  letter-spacing: 0.5px;
+}
+
+.touch-popup-distance {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--accent-amber);
+  margin-bottom: 2px;
+}
+
+.touch-popup-coords {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.touch-popup-clear-btn {
+  background: rgba(244, 63, 94, 0.15);
+  border: 1px solid rgba(244, 63, 94, 0.3);
+  color: var(--accent-rose);
+  font-size: 10px;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  width: 100%;
+  transition: var(--transition);
+  font-family: 'Outfit', sans-serif;
+}
+
+.touch-popup-clear-btn:hover {
+  background: var(--accent-rose);
+  color: #fff;
+  border-color: transparent;
+}

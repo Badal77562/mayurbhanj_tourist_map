@@ -19,8 +19,13 @@ let activeLayer = null;
 let userLocation = null;
 let userLocationMarker = null;
 let isTrackingLocation = false;
+let isSimulatedLocation = false;
 let watchId = null;
 const MOCK_GPS_COORDS = [21.9329, 86.7319]; // Default simulated coordinates (Baripada)
+
+// ---- Touch Distance Measurement State ----
+let touchRouteLine = null;
+let touchMarker = null;
 
 // ---- Routing State Variables ----
 let routingModeActive = false;
@@ -88,6 +93,9 @@ function initMap() {
 
   // Add all markers
   TOURIST_SPOTS.forEach(spot => addMarker(spot));
+
+  // Bind map click for distance measurement
+  map.on('click', handleMapClickForDistance);
 
   // Update sidebar
   renderSidebarCards(TOURIST_SPOTS);
@@ -416,6 +424,9 @@ function openModal(id) {
   const spot = TOURIST_SPOTS.find(s => s.id === id);
   if (!spot) return;
 
+  // Set active card state when opening modal
+  setActiveCard(id);
+
   const meta = CATEGORY_META[spot.category];
   const color = meta ? meta.color : '#22c55e';
   const bg = meta ? meta.bg : 'rgba(34,197,94,0.15)';
@@ -736,7 +747,7 @@ function startDirections(spotId, event) {
   map.closePopup();
 
   routingModeActive = true;
-  routeDestinationSpot = TOURIST_SPOTS.find(s => s.id === spotId);
+  routeDestinationSpot = TOURIST_SPOTS.find(s => Number(s.id) === Number(spotId));
   if (!routeDestinationSpot) return;
 
   // Update destination label in UI
@@ -777,6 +788,14 @@ function closeDirections() {
   if (startMarker) {
     map.removeLayer(startMarker);
     startMarker = null;
+  }
+
+  // Clear touch measurements
+  clearTouchMeasurement();
+
+  // Clear distance badge on user location marker
+  if (userLocation && userLocationMarker) {
+    updateUserLocationMarker(userLocation, isSimulatedLocation);
   }
 
   // Disable click on map listener
@@ -969,6 +988,7 @@ function startLocationTracking(flyTo = false) {
     const lng = position.coords.longitude;
     const isFirstTime = !userLocation;
     userLocation = [lat, lng];
+    isSimulatedLocation = false;
 
     updateUserLocationMarker(userLocation, false); // false = verified GPS
 
@@ -983,6 +1003,11 @@ function startLocationTracking(flyTo = false) {
       if (routingModeActive && routeDestinationSpot) {
         calculateRoute();
       }
+    }
+
+    // Also recalculate route on position change if user touch measurement is active
+    if (touchMarker && touchRouteLine) {
+      updateTouchRouteOnMove(userLocation);
     }
   };
 
@@ -1007,6 +1032,7 @@ function startLocationTracking(flyTo = false) {
 function useMockLocation(flyTo = false) {
   const isFirstTime = !userLocation;
   userLocation = MOCK_GPS_COORDS;
+  isSimulatedLocation = true;
   
   updateUserLocationMarker(userLocation, true); // true means simulated location
   isTrackingLocation = true;
@@ -1027,6 +1053,7 @@ function useMockLocation(flyTo = false) {
 
 function stopLocationTracking() {
   isTrackingLocation = false;
+  isSimulatedLocation = false;
   updateLocateButtonState();
 
   if (watchId !== null) {
@@ -1044,17 +1071,59 @@ function stopLocationTracking() {
 function updateUserLocationMarker(latlng, isSimulated) {
   const labelText = isSimulated ? 'My Location (Simulated)' : 'My Location (GPS Verified)';
   const statusText = isSimulated ? 'Simulated (GPS Denied)' : 'GPS Verified';
+  const color = isSimulated ? '#a855f7' : '#3b82f6';
   
+  let distanceText = '';
+  if (routeDestinationSpot) {
+    const straightDist = (L.latLng(latlng).distanceTo(L.latLng(routeDestinationSpot.lat, routeDestinationSpot.lng)) / 1000).toFixed(1);
+    distanceText = `<div class="user-distance-badge" style="border-color: ${color}99;"><i class="fas fa-person-biking"></i> ${straightDist} km to ${routeDestinationSpot.name}</div>`;
+  }
+
   if (userLocationMarker) {
     userLocationMarker.setLatLng(latlng);
     userLocationMarker.getPopup().setContent(`<b>${labelText}</b><br>${statusText}`);
+    
+    // Update the distance badge dynamically
+    const el = userLocationMarker.getElement();
+    if (el) {
+      const badge = el.querySelector('.user-distance-badge');
+      if (badge) {
+        if (routeDestinationSpot) {
+          const straightDist = (L.latLng(latlng).distanceTo(L.latLng(routeDestinationSpot.lat, routeDestinationSpot.lng)) / 1000).toFixed(1);
+          badge.innerHTML = `<i class="fas fa-person-biking"></i> ${straightDist} km to ${routeDestinationSpot.name}`;
+          badge.style.display = 'block';
+        } else {
+          badge.style.display = 'none';
+        }
+      } else if (routeDestinationSpot) {
+        // Re-render icon if badge is missing
+        const newIcon = L.divIcon({
+          html: `
+            <div class="user-location-marker">
+              <div class="user-location-pulse" style="background: rgba(${isSimulated ? '168, 85, 247' : '59, 130, 246'}, 0.3);"></div>
+              <div class="user-location-bike" style="background: linear-gradient(135deg, ${color}, ${isSimulated ? '#7e22ce' : '#1d4ed8'});">
+                <i class="fas fa-person-biking"></i>
+              </div>
+              ${distanceText}
+            </div>
+          `,
+          className: '',
+          iconSize: [24, 24],
+          iconAnchor: [12, 12]
+        });
+        userLocationMarker.setIcon(newIcon);
+      }
+    }
   } else {
     // Create new marker
     const icon = L.divIcon({
       html: `
         <div class="user-location-marker">
-          <div class="user-location-pulse" style="${isSimulated ? 'background: rgba(168, 85, 247, 0.3);' : ''}"></div>
-          <div class="user-location-dot" style="${isSimulated ? 'background: #a855f7; box-shadow: 0 0 8px rgba(168, 85, 247, 0.8);' : ''}"></div>
+          <div class="user-location-pulse" style="background: rgba(${isSimulated ? '168, 85, 247' : '59, 130, 246'}, 0.3);"></div>
+          <div class="user-location-bike" style="background: linear-gradient(135deg, ${color}, ${isSimulated ? '#7e22ce' : '#1d4ed8'});">
+            <i class="fas fa-person-biking"></i>
+          </div>
+          ${distanceText}
         </div>
       `,
       className: '',
@@ -1076,6 +1145,88 @@ function updateLocateButtonState() {
     if (icon) {
       icon.className = isTrackingLocation ? 'fas fa-location-arrow animate-pulse' : 'fas fa-location-arrow';
     }
+  }
+}
+
+/* =============================================
+   TOUCH DISTANCE MEASUREMENT
+   ============================================= */
+function handleMapClickForDistance(e) {
+  // If mapClickListener is active (routing start point selection), do not run touch measure
+  if (routingModeActive && mapClickListener) return;
+
+  const startCoords = userLocation || MOCK_GPS_COORDS;
+  const clickedLatLng = e.latlng;
+
+  // Clear existing
+  if (touchRouteLine) map.removeLayer(touchRouteLine);
+  if (touchMarker) map.removeLayer(touchMarker);
+
+  // Calculate distance
+  const distMeters = L.latLng(startCoords).distanceTo(clickedLatLng);
+  const distKm = (distMeters / 1000).toFixed(1);
+
+  // Draw dashed line
+  touchRouteLine = L.polyline([startCoords, clickedLatLng], {
+    color: '#f59e0b',
+    weight: 3,
+    dashArray: '6, 6',
+    opacity: 0.8
+  }).addTo(map);
+
+  // Draw target marker
+  const targetIcon = L.divIcon({
+    html: `
+      <div class="touch-target-marker">
+        <div class="touch-target-dot"></div>
+      </div>
+    `,
+    className: '',
+    iconSize: [16, 16],
+    iconAnchor: [8, 8]
+  });
+
+  touchMarker = L.marker(clickedLatLng, { icon: targetIcon })
+    .addTo(map)
+    .bindPopup(`
+      <div class="touch-popup">
+        <div class="touch-popup-title"><i class="fas fa-hand-pointer"></i> Measured Point</div>
+        <div class="touch-popup-distance">${distKm} km from you</div>
+        <div class="touch-popup-coords">${clickedLatLng.lat.toFixed(4)}, ${clickedLatLng.lng.toFixed(4)}</div>
+        <button class="touch-popup-clear-btn" onclick="clearTouchMeasurement(event)">Clear Measure</button>
+      </div>
+    `, { closeButton: false })
+    .openPopup();
+}
+
+function updateTouchRouteOnMove(coords) {
+  if (touchRouteLine && touchMarker) {
+    const targetLatLng = touchMarker.getLatLng();
+    touchRouteLine.setLatLngs([coords, targetLatLng]);
+    
+    const distMeters = L.latLng(coords).distanceTo(targetLatLng);
+    const distKm = (distMeters / 1000).toFixed(1);
+
+    touchMarker.getPopup().setContent(`
+      <div class="touch-popup">
+        <div class="touch-popup-title"><i class="fas fa-hand-pointer"></i> Measured Point</div>
+        <div class="touch-popup-distance">${distKm} km from you</div>
+        <div class="touch-popup-coords">${targetLatLng.lat.toFixed(4)}, ${targetLatLng.lng.toFixed(4)}</div>
+        <button class="touch-popup-clear-btn" onclick="clearTouchMeasurement(event)">Clear Measure</button>
+      </div>
+    `);
+  }
+}
+
+function clearTouchMeasurement(e) {
+  if (e) e.stopPropagation();
+  if (touchRouteLine) {
+    map.removeLayer(touchRouteLine);
+    touchRouteLine = null;
+  }
+  if (touchMarker) {
+    map.removeLayer(touchMarker);
+    touchMarker = null;
   }
 }
 
@@ -1297,6 +1448,9 @@ function drawRouteOnMap(geojsonGeometry, isFallback) {
     .addTo(map)
     .bindPopup(`<b>Start Location:</b><br>${routeStartLabel}`)
     .openPopup();
+
+  // Invalidate map size to ensure container bounds are correct
+  map.invalidateSize();
 
   // Fit view to route bounds
   map.fitBounds(routePolyline.getBounds(), { padding: [50, 50] });
