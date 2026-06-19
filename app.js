@@ -15,6 +15,13 @@ let sidebarOpen = true;
 let currentBasemap = 'dark';
 let activeLayer = null;
 
+// ---- User Location Tracking State ----
+let userLocation = null;
+let userLocationMarker = null;
+let isTrackingLocation = false;
+let watchId = null;
+const MOCK_GPS_COORDS = [21.9329, 86.7319]; // Default simulated coordinates (Baripada)
+
 // ---- Routing State Variables ----
 let routingModeActive = false;
 let routeDestinationSpot = null;
@@ -869,39 +876,244 @@ function setupMapClickListener() {
 }
 
 function getGPSLocation() {
-  if (!navigator.geolocation) {
-    alert("Geolocation is not supported by your browser.");
-    document.getElementById('routeOrigin').value = 'baripada';
-    handleOriginChange('baripada');
-    return;
-  }
-
   const statusEl = document.getElementById('routeStatus');
   const statusTextEl = document.getElementById('routeStatusText');
   
   statusEl.style.display = 'flex';
   statusTextEl.textContent = 'Requesting GPS location...';
 
+  // If already tracking and we have a valid location, use it immediately
+  if (isTrackingLocation && userLocation) {
+    statusEl.style.display = 'none';
+    routeStartCoords = userLocation;
+    routeStartLabel = 'My Location';
+    calculateRoute();
+    return;
+  }
+
+  // Request a single position if we don't have it, and start tracking in background
+  if (!navigator.geolocation) {
+    statusEl.style.display = 'none';
+    showToast("Geolocation is not supported by your browser. Using simulated location.", "warning");
+    useMockLocation(false);
+    return;
+  }
+
   navigator.geolocation.getCurrentPosition(
     (position) => {
+      statusEl.style.display = 'none';
       const lat = position.coords.latitude;
       const lng = position.coords.longitude;
-      routeStartCoords = [lat, lng];
+      userLocation = [lat, lng];
+      routeStartCoords = userLocation;
       routeStartLabel = 'My Location';
+      
+      // Update marker and start active tracking
+      updateUserLocationMarker(userLocation, false);
+      isTrackingLocation = true;
+      updateLocateButtonState();
+      
+      // Keep watching position in background
+      startLocationTracking(false);
+      
       calculateRoute();
     },
     (error) => {
-      console.warn("Geolocation error:", error);
-      let errMsg = "Unable to retrieve your location.";
+      statusEl.style.display = 'none';
+      console.warn("Geolocation getCurrentPosition error:", error);
+      let msg = "GPS location unavailable. Using simulated location.";
       if (error.code === error.PERMISSION_DENIED) {
-        errMsg = "GPS permission denied by user.";
+        msg = "GPS permission denied. Using simulated location (Baripada).";
       }
-      alert(errMsg + " Reverting to Baripada.");
-      document.getElementById('routeOrigin').value = 'baripada';
-      handleOriginChange('baripada');
+      showToast(msg, "info");
+      
+      // Fallback
+      useMockLocation(false);
     },
     { enableHighAccuracy: true, timeout: 6000, maximumAge: 0 }
   );
+}
+
+/* =============================================
+   LOCATION TRACKING FUNCTIONS
+   ============================================= */
+function toggleLocationTracking() {
+  if (isTrackingLocation) {
+    stopLocationTracking();
+    showToast("Location tracking disabled.", "info");
+  } else {
+    startLocationTracking(true); // true means fly to position
+  }
+}
+
+function startLocationTracking(flyTo = false) {
+  if (isTrackingLocation && userLocation) {
+    if (flyTo) {
+      map.flyTo(userLocation, 14);
+    }
+    return;
+  }
+
+  if (!navigator.geolocation) {
+    showToast("Geolocation is not supported by your browser. Using simulated location.", "warning");
+    useMockLocation(flyTo);
+    return;
+  }
+
+  isTrackingLocation = true;
+  updateLocateButtonState();
+  showToast("Starting location tracking...", "info");
+
+  const successCallback = (position) => {
+    const lat = position.coords.latitude;
+    const lng = position.coords.longitude;
+    const isFirstTime = !userLocation;
+    userLocation = [lat, lng];
+
+    updateUserLocationMarker(userLocation, false); // false = verified GPS
+
+    if (flyTo && (isFirstTime || flyTo)) {
+      map.flyTo(userLocation, 14);
+    }
+
+    // Update directions selection if needed
+    if (document.getElementById('routeOrigin').value === 'gps') {
+      routeStartCoords = userLocation;
+      routeStartLabel = 'My Location';
+      if (routingModeActive && routeDestinationSpot) {
+        calculateRoute();
+      }
+    }
+  };
+
+  const errorCallback = (error) => {
+    console.warn("Geolocation tracking error:", error);
+    let msg = "GPS location unavailable. Using simulated location.";
+    if (error.code === error.PERMISSION_DENIED) {
+      msg = "GPS permission denied. Using simulated location (Baripada).";
+    }
+    showToast(msg, "info");
+    useMockLocation(flyTo);
+  };
+
+  // Start watching position
+  watchId = navigator.geolocation.watchPosition(successCallback, errorCallback, {
+    enableHighAccuracy: true,
+    timeout: 8000,
+    maximumAge: 3000
+  });
+}
+
+function useMockLocation(flyTo = false) {
+  const isFirstTime = !userLocation;
+  userLocation = MOCK_GPS_COORDS;
+  
+  updateUserLocationMarker(userLocation, true); // true means simulated location
+  isTrackingLocation = true;
+  updateLocateButtonState();
+
+  if (flyTo && (isFirstTime || flyTo)) {
+    map.flyTo(userLocation, 14);
+  }
+
+  if (document.getElementById('routeOrigin').value === 'gps') {
+    routeStartCoords = userLocation;
+    routeStartLabel = 'My Location (Simulated)';
+    if (routingModeActive && routeDestinationSpot) {
+      calculateRoute();
+    }
+  }
+}
+
+function stopLocationTracking() {
+  isTrackingLocation = false;
+  updateLocateButtonState();
+
+  if (watchId !== null) {
+    navigator.geolocation.clearWatch(watchId);
+    watchId = null;
+  }
+
+  if (userLocationMarker) {
+    map.removeLayer(userLocationMarker);
+    userLocationMarker = null;
+  }
+  userLocation = null;
+}
+
+function updateUserLocationMarker(latlng, isSimulated) {
+  const labelText = isSimulated ? 'My Location (Simulated)' : 'My Location (GPS Verified)';
+  const statusText = isSimulated ? 'Simulated (GPS Denied)' : 'GPS Verified';
+  
+  if (userLocationMarker) {
+    userLocationMarker.setLatLng(latlng);
+    userLocationMarker.getPopup().setContent(`<b>${labelText}</b><br>${statusText}`);
+  } else {
+    // Create new marker
+    const icon = L.divIcon({
+      html: `
+        <div class="user-location-marker">
+          <div class="user-location-pulse" style="${isSimulated ? 'background: rgba(168, 85, 247, 0.3);' : ''}"></div>
+          <div class="user-location-dot" style="${isSimulated ? 'background: #a855f7; box-shadow: 0 0 8px rgba(168, 85, 247, 0.8);' : ''}"></div>
+        </div>
+      `,
+      className: '',
+      iconSize: [24, 24],
+      iconAnchor: [12, 12]
+    });
+
+    userLocationMarker = L.marker(latlng, { icon })
+      .addTo(map)
+      .bindPopup(`<b>${labelText}</b><br>${statusText}`);
+  }
+}
+
+function updateLocateButtonState() {
+  const btn = document.getElementById('locateBtn');
+  if (btn) {
+    btn.classList.toggle('active', isTrackingLocation);
+    const icon = btn.querySelector('i');
+    if (icon) {
+      icon.className = isTrackingLocation ? 'fas fa-location-arrow animate-pulse' : 'fas fa-location-arrow';
+    }
+  }
+}
+
+/* =============================================
+   TOAST NOTIFICATION HELPER
+   ============================================= */
+function showToast(message, type = 'info') {
+  let container = document.getElementById('toastContainer');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'toastContainer';
+    container.className = 'toast-container';
+    document.body.appendChild(container);
+  }
+
+  const toast = document.createElement('div');
+  toast.className = `toast toast-${type}`;
+  
+  let icon = 'fa-info-circle';
+  if (type === 'success') icon = 'fa-check-circle';
+  else if (type === 'warning') icon = 'fa-exclamation-triangle';
+  else if (type === 'error') icon = 'fa-exclamation-circle';
+
+  toast.innerHTML = `
+    <i class="fas ${icon}"></i>
+    <span class="toast-message">${message}</span>
+  `;
+
+  container.appendChild(toast);
+
+  // Trigger CSS entry transition
+  setTimeout(() => toast.classList.add('show'), 50);
+
+  // Remove toast after 4 seconds
+  setTimeout(() => {
+    toast.classList.remove('show');
+    toast.addEventListener('transitionend', () => toast.remove());
+  }, 4000);
 }
 
 function calculateRoute() {
